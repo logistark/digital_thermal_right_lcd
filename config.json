@@ -1,5 +1,5 @@
 {
-    "display_mode": "alternate_metrics",
+    "display_mode": "metrics",
     "metrics": {
         "colors": [
             "ffffff",
@@ -187,5 +187,5 @@
     "vendor_id": "0x0416",
     "cpu_temperature_unit": "celsius",
     "gpu_temperature_unit": "celsius",
-    "layout_mode": "small"
+    "layout_mode": "big"
 }

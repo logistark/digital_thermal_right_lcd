@@ -10,6 +10,8 @@ import os
 import sys
 
 
+# Digit mask for 7-segment displays
+# Format: [top, top-right, bottom-right, bottom, bottom-left, top-left, middle]
 digit_mask = np.array(
     [
         [1, 1, 1, 0, 1, 1, 1],  # 0
@@ -101,9 +103,16 @@ class Controller:
             packet = bytes.fromhex('00'+packets[i*128:(i+1)*128])
             self.dev.write(packet)
 
-    def set_temp(self, temperature: int, device='cpu', unit="celsius"):        
+    def set_temp(self, temperature: int, device='cpu', unit="celsius"):
         if temperature < 1000:
-            self.set_leds(device + '_temp', digit_mask[get_number_array(temperature)].flatten())
+            # Always use 3 digits with padding (fill with blank/10)
+            digit_array = get_number_array(temperature, array_length=3, fill_value=10)
+            leds = digit_mask[digit_array].flatten()
+            # GPU LEDs are in reverse order: each digit's 7 segments are reversed
+            if device == 'gpu':
+                # Reshape to (num_digits, 7), reverse each digit's segments, then flatten
+                leds = leds.reshape(-1, 7)[:, ::-1].flatten()
+            self.set_leds(device + '_temp', leds)
             if unit == "celsius":
                 self.set_leds(device + '_celsius', 1)
             elif unit == "fahrenheit":
@@ -113,7 +122,17 @@ class Controller:
 
     def set_usage(self, usage : int, device='cpu'):
         if usage<200:
-            self.set_leds(device+'_usage', np.concatenate(([int(usage>=100)]*2,digit_mask[get_number_array(usage, array_length=2)].flatten())))
+            # Use 2 digits for the main number
+            digit_array = get_number_array(usage, array_length=2, fill_value=10)
+            # Get the 14 LEDs for 2 digits (2 * 7 segments)
+            digit_leds = digit_mask[digit_array].flatten()
+            # GPU LEDs are in reverse order: each digit's 7 segments are reversed
+            if device == 'gpu':
+                # Reshape to (2 digits, 7 segments), reverse each digit's segments, then flatten
+                digit_leds = digit_leds.reshape(-1, 7)[:, ::-1].flatten()
+            # Prepend 2 LEDs for the "1" digit when usage >= 100
+            leds = np.concatenate(([int(usage>=100)]*2, digit_leds))
+            self.set_leds(device+'_usage', leds)
             self.set_leds(device+'_percent_led', 1)
         else:
             raise Exception("The numbers displayed on the usage LCD must be less than 200")
@@ -125,6 +144,22 @@ class Controller:
             self.set_leds(device+"_led", 1)
             self.set_temp(metrics[device+"_temp"], device=device, unit=self.temp_unit[device])
             self.set_usage(metrics[device+"_usage"], device=device)
+            self.colors[self.leds_indexes[device]] = self.metrics_colors[self.leds_indexes[device]]
+
+    def display_digit_test(self):
+        """Test mode: cycle through digits 0-9 every 2 seconds on all matrices"""
+        import time
+        test_digit = int(time.time() / 2) % 10
+
+        # Show same digit on all matrices for easy verification
+        print(f"Showing digit: {test_digit}")
+
+        for device in ["cpu", "gpu"]:
+            self.set_leds(device+"_led", 1)
+            # Show test digit on temperature (as X0N format where N is test digit)
+            self.set_temp(test_digit, device=device, unit="celsius")
+            # Show test digit on usage (as 0N format)
+            self.set_usage(test_digit, device=device)
             self.colors[self.leds_indexes[device]] = self.metrics_colors[self.leds_indexes[device]]
 
     def display_time(self, device="cpu"):
@@ -151,7 +186,7 @@ class Controller:
         else:
             print(f"Warning: {device} temperature not available.")
     
-    def display_usage_small(self, device='cpu'):   
+    def display_usage_small(self, device='cpu'):
         current_usage = self.metrics.get_metrics(self.temp_unit)[f"{device}_usage"]
         self.set_leds('percent_led', 1)
         self.set_leds(device+'_led', 1)
@@ -331,16 +366,38 @@ class Controller:
 
 
 
-def main(config_path):
+def main(config_path, test_mode=False):
     controller = Controller(config_path=config_path)
-    controller.display()
+
+    if test_mode:
+        print("=== DIGIT TEST MODE ===")
+        print("Cycling through digits 0-9 every 2 seconds on all matrices")
+        print("Press Ctrl+C to stop\n")
+        try:
+            while True:
+                controller.update()
+                controller.display_digit_test()
+                controller.send_packets()
+                time.sleep(0.1)  # Update display faster for smoother cycling
+        except KeyboardInterrupt:
+            print("\nTest mode stopped")
+            controller.clear()
+            controller.show()
+    else:
+        controller.display()
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        config_path = sys.argv[1]
+    test_mode = '--test' in sys.argv
+
+    # Remove --test from arguments if present
+    args = [arg for arg in sys.argv[1:] if arg != '--test']
+
+    if len(args) > 0:
+        config_path = args[0]
         print(f"Using config path: {config_path}")
     else:
         print("No config path provided, using default.")
         config_path = None
-    main(config_path)
+
+    main(config_path, test_mode=test_mode)
 
