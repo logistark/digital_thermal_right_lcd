@@ -108,10 +108,9 @@ class Controller:
             # Always use 3 digits with padding (fill with blank/10)
             digit_array = get_number_array(temperature, array_length=3, fill_value=10)
             leds = digit_mask[digit_array].flatten()
-            # GPU LEDs are in reverse order: each digit's 7 segments are reversed
+            # GPU LEDs are in reverse order - reverse digit order but keep segments intact
             if device == 'gpu':
-                # Reshape to (num_digits, 7), reverse each digit's segments, then flatten
-                leds = leds.reshape(-1, 7)[:, ::-1].flatten()
+                leds = leds.reshape(-1, 7)[::-1].flatten()  # Reverse digit order only
             self.set_leds(device + '_temp', leds)
             if unit == "celsius":
                 self.set_leds(device + '_celsius', 1)
@@ -124,12 +123,10 @@ class Controller:
         if usage<200:
             # Use 2 digits for the main number
             digit_array = get_number_array(usage, array_length=2, fill_value=10)
-            # Get the 14 LEDs for 2 digits (2 * 7 segments)
             digit_leds = digit_mask[digit_array].flatten()
-            # GPU LEDs are in reverse order: each digit's 7 segments are reversed
+            # GPU LEDs are in reverse order - reverse digit order but keep segments intact
             if device == 'gpu':
-                # Reshape to (2 digits, 7 segments), reverse each digit's segments, then flatten
-                digit_leds = digit_leds.reshape(-1, 7)[:, ::-1].flatten()
+                digit_leds = digit_leds.reshape(-1, 7)[::-1].flatten()  # Reverse digit order only
             # Prepend 2 LEDs for the "1" digit when usage >= 100
             leds = np.concatenate(([int(usage>=100)]*2, digit_leds))
             self.set_leds(device+'_usage', leds)
