@@ -141,19 +141,22 @@ class Controller:
             self.colors[self.leds_indexes[device]] = self.metrics_colors[self.leds_indexes[device]]
 
     def display_digit_test(self):
-        """Test mode: cycle through digits 0-9 every 2 seconds on all matrices"""
+        """Test mode: cycle through sequences 111, 222, 333... 999 every 2 seconds"""
         import time
-        test_digit = int(time.time() / 2) % 10
+        test_digit = (int(time.time() / 2) % 9) + 1  # 1-9
 
-        # Show same digit on all matrices for easy verification
-        print(f"Showing digit: {test_digit}")
+        # Create sequence like 111, 222, 333, etc.
+        test_number = test_digit * 111  # 111, 222, 333...
+
+        # Show same sequence on all matrices for easy verification
+        print(f"Showing sequence: {test_number}")
 
         for device in ["cpu", "gpu"]:
             self.set_leds(device+"_led", 1)
-            # Show test digit on temperature (as X0N format where N is test digit)
-            self.set_temp(test_digit, device=device, unit="celsius")
-            # Show test digit on usage (as 0N format)
-            self.set_usage(test_digit, device=device)
+            # Show test sequence on temperature (e.g., 111, 222, 333)
+            self.set_temp(test_number, device=device, unit="celsius")
+            # Show test digit on usage (e.g., 11, 22, 33)
+            self.set_usage(test_digit * 11, device=device)
             self.colors[self.leds_indexes[device]] = self.metrics_colors[self.leds_indexes[device]]
 
     def display_time(self, device="cpu"):
