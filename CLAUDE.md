@@ -97,16 +97,25 @@ The `config.json` contains:
 
 ### Number Display Logic
 
-**Temperature (3 digits with padding):**
+**Temperature (3 digits with padding) - Both layouts:**
 ```python
 digit_array = get_number_array(temperature, array_length=3, fill_value=10)  # 10 = blank
 # Example: 50 → [10, 5, 0] displays as " 50"
+# Applies to: set_temp() (big layout) and display_temp_small() (small layout)
 ```
 
-**Usage (2 digits + overflow):**
+**Usage - Big layout (2 digits + overflow):**
 ```python
 digit_array = get_number_array(usage, array_length=2, fill_value=10)
 leds = np.concatenate(([int(usage>=100)]*2, digit_leds))  # 2 LEDs for "1" in "100%"
+# Used by: set_usage() for separate CPU/GPU displays
+```
+
+**Usage - Small layout (3 digits):**
+```python
+digit_array = get_number_array(usage, array_length=3, fill_value=10)
+# Example: 75 → [10, 7, 5] displays as " 75", 100 → [1, 0, 0] displays as "100"
+# Used by: display_usage_small() for shared single display
 ```
 
 ## Common Tasks

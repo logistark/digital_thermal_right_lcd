@@ -151,13 +151,31 @@ class Controller:
         # Show same sequence on all matrices for easy verification
         print(f"Showing sequence: {test_number}")
 
-        for device in ["cpu", "gpu"]:
+        if self.config.get("layout_mode") == "small":
+            # Small layout: cycle through devices showing test number
+            cycle = (int(time.time() / 4) % 4)  # 0-3, changes every 4 seconds
+            devices = ["cpu", "gpu"]
+            device = devices[cycle % 2]
+
             self.set_leds(device+"_led", 1)
-            # Show test sequence on temperature (e.g., 111, 222, 333)
-            self.set_temp(test_number, device=device, unit="celsius")
-            # Show test digit on usage (e.g., 11, 22, 33)
-            self.set_usage(test_digit * 11, device=device)
-            self.colors[self.leds_indexes[device]] = self.metrics_colors[self.leds_indexes[device]]
+            if cycle < 2:  # Show temperature
+                self.set_leds('celsius', 1)
+                digit_array = get_number_array(test_number, array_length=3, fill_value=10)
+                self.set_leds('digit_frame', digit_mask[digit_array].flatten())
+            else:  # Show usage
+                self.set_leds('percent_led', 1)
+                digit_array = get_number_array(test_number, array_length=3, fill_value=10)
+                self.set_leds('digit_frame', digit_mask[digit_array].flatten())
+            self.colors = self.metrics_colors
+        else:
+            # Big layout: show on both CPU and GPU simultaneously
+            for device in ["cpu", "gpu"]:
+                self.set_leds(device+"_led", 1)
+                # Show test sequence on temperature (e.g., 111, 222, 333)
+                self.set_temp(test_number, device=device, unit="celsius")
+                # Show test digit on usage (e.g., 11, 22, 33)
+                self.set_usage(test_digit * 11, device=device)
+                self.colors[self.leds_indexes[device]] = self.metrics_colors[self.leds_indexes[device]]
 
     def display_time(self, device="cpu"):
         current_time = datetime.datetime.now()
@@ -179,7 +197,9 @@ class Controller:
         current_temp = self.metrics.get_metrics(self.temp_unit)[f"{device}_temp"]
         self.colors = self.metrics_colors
         if current_temp is not None:
-            self.set_leds('digit_frame', digit_mask[get_number_array(current_temp, array_length=3, fill_value=0)].flatten())
+            # Use 3 digits with blank padding (10) for proper display (e.g., " 50" not "050")
+            digit_array = get_number_array(current_temp, array_length=3, fill_value=10)
+            self.set_leds('digit_frame', digit_mask[digit_array].flatten())
         else:
             print(f"Warning: {device} temperature not available.")
     
@@ -189,7 +209,9 @@ class Controller:
         self.set_leds(device+'_led', 1)
         self.colors = self.metrics_colors
         if current_usage is not None:
-            self.set_leds('digit_frame', digit_mask[get_number_array(current_usage, array_length=3, fill_value=0)].flatten())
+            # Use 3 digits with blank padding (10) for proper display (e.g., " 75" not "075", or "100")
+            digit_array = get_number_array(current_usage, array_length=3, fill_value=10)
+            self.set_leds('digit_frame', digit_mask[digit_array].flatten())
         else:
             print(f"Warning: {device} usage not available.")
 
